@@ -7,14 +7,13 @@ POST /auth/login     — verify credentials, return JWT access token
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pymongo.errors import DuplicateKeyError
-
-from fastapi import Depends
 
 from db.mongo import get_db
 from models.schemas import LoginRequest, MeResponse, RegisterRequest, TokenResponse
 from utils.auth import CurrentUser, create_access_token, get_current_user, hash_password, verify_password
+from services.cognee_service import remember_onboarding
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -59,6 +58,19 @@ async def register(body: RegisterRequest):
         )
 
     student_id = str(result.inserted_id)
+
+    # ── Save onboarding details to Cognee memory graph ────────────────────────
+    try:
+        await remember_onboarding(
+            student_id=student_id,
+            name=body.name,
+            year=body.year,
+            goal=body.goal,
+            skills=body.current_skills
+        )
+    except Exception as exc:
+        # Cognee errors should never block user registration
+        logger.error("Failed to remember onboarding in Cognee: %s", exc)
 
     # ── Issue token ───────────────────────────────────────────────────────────
     token = create_access_token(

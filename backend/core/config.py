@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # ── LLM ──────────────────────────────────────────────
     GROQ_API_KEY: str
+    LLM_MODEL: str = "llama-3.3-70b-versatile"   # override in .env to swap models
 
     # ── MongoDB ──────────────────────────────────────────
     MONGODB_URI: str = "mongodb://localhost:27017/trackmind"
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
 
     # ── Cognee ───────────────────────────────────────────
     COGNEE_API_KEY: str = ""            # empty → local Cognee
+    COGNEE_SERVICE_URL: str = ""        # remote tenant URL (e.g. https://your-tenant.cognee.ai)
 
     # ── App ──────────────────────────────────────────────
     APP_TITLE: str = "TrackMind API"

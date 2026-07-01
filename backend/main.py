@@ -46,9 +46,14 @@ async def lifespan(app: FastAPI):
     # 1. MongoDB
     await connect_to_mongo()
 
-    # 2. Cognee  (initialised lazily in cognee_service.py; wired here later)
-    #    from services.cognee_service import init_cognee
-    #    await init_cognee()
+    # 2. Cognee — configure LLM backend (Groq) + local vector store
+    from services.cognee_service import init_cognee, seed_cs_ontology
+    await init_cognee()
+
+    # 3. Seed shared CS topic ontology graph (prerequisites/relationships)
+    #    This runs once and is used by all agents to enrich quiz generation
+    #    with topic dependency context via cognee.recall(ontology_dataset).
+    await seed_cs_ontology()
 
     logger.info("✅  All services ready — accepting requests")
     yield
