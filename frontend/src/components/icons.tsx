@@ -140,3 +140,29 @@ export function IconSpinner(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function IconBookOpen(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 6.5c-1.6-1.2-3.8-1.8-6-1.8v13c2.2 0 4.4.6 6 1.8" />
+      <path d="M12 6.5c1.6-1.2 3.8-1.8 6-1.8v13c-2.2 0-4.4.6-6 1.8" />
+      <path d="M12 6.5v13" />
+    </svg>
+  );
+}
+
+export function IconChevronLeft(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+export function IconChevronRight(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
