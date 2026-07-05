@@ -104,7 +104,7 @@ export default function RoadmapPage() {
   }, [ready, studentId, handleSessionExpired]);
 
   function retryLoad() {
-    if (!studentId) return;
+    if (!studentId || phase === "loading") return;
     setPhase("loading");
     setError(null);
     fetchRoadmap(studentId).then((result) => {
@@ -124,6 +124,7 @@ export default function RoadmapPage() {
   }
 
   function generateRoadmap() {
+    if (phase === "generating") return;
     setPhase("generating");
     setError(null);
     requestRoadmapGeneration().then((result) => {

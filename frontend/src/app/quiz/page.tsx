@@ -106,7 +106,7 @@ export default function QuizPage() {
   }
 
   async function startQuiz() {
-    if (!studentId) return;
+    if (!studentId || phase === "loading") return;
     setError(null);
     setNotice(null);
     setIsMock(false);
