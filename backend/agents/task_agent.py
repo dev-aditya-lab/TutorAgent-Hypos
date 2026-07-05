@@ -36,7 +36,7 @@ import re
 from datetime import datetime, timezone
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.prebuilt import create_agent
+from langchain.agents import create_agent
 
 from agents.tools.llm_factory import get_agent_llm
 from agents.tools.task_tools import (

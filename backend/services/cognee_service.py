@@ -172,6 +172,87 @@ async def _add_and_cognify(dataset_id: str, text: str) -> None:
         logger.error("Cognee add+cognify failed | dataset=%s | %s", dataset_id, exc)
 
 
+# ── Text cleaner ─────────────────────────────────────────────────────────────
+
+import re as _re
+import unicodedata as _unicodedata
+
+
+def _extract_snippet(r) -> str:
+    """
+    Extract plain text from a single Cognee recall result.
+
+    Cognee 1.1.x returns heterogeneous result types:
+      - dict / dict-like:  {'kind': 'graph_completion', 'text': '...', ...}
+      - objects with .text, .answer, .context, .content attributes
+      - plain strings
+
+    Priority: dict['text'] > .text > .answer > .context > .content > str(r)
+    """
+    # ── dict or dict-like (most common from graph_completion) ──
+    if isinstance(r, dict):
+        return r.get("text") or r.get("answer") or r.get("content") or r.get("context") or ""
+
+    # ── Check for a 'text' attribute first (dataclass / pydantic model) ──
+    raw = getattr(r, "text", None)
+    if raw is not None:
+        return str(raw)
+
+    # ── Other named attributes ──
+    for attr in ("answer", "context", "content"):
+        val = getattr(r, attr, None)
+        if val is not None:
+            return str(val)
+
+    # ── Plain string ──
+    if isinstance(r, str):
+        # If it looks like a raw dict representation, try to parse it
+        s = r.strip()
+        if s.startswith("{") and "'text'" in s:
+            try:
+                import ast
+                parsed = ast.literal_eval(s)
+                if isinstance(parsed, dict):
+                    return parsed.get("text") or parsed.get("answer") or parsed.get("content") or s
+            except Exception:
+                pass
+        return s
+
+    return str(r)
+
+
+def _clean_text(raw: str) -> str:
+    """
+    Clean raw Cognee text before returning it to the API:
+      1. Normalize unicode (NFKC) — converts \u202f, \u00a0 etc. to spaces
+      2. Unescape literal \\n sequences that weren't converted to real newlines
+      3. Strip markdown formatting symbols (**, ##, *, ---)
+      4. Collapse excess blank lines (max 1 blank line between paragraphs)
+      5. Strip leading/trailing whitespace
+    """
+    if not raw:
+        return raw
+
+    # 1. Unicode normalize — fixes \u202f (narrow no-break space) etc.
+    text = _unicodedata.normalize("NFKC", raw)
+
+    # 2. Convert literal \n (two chars) to real newlines
+    text = text.replace("\\n", "\n")
+
+    # 3. Strip markdown bold/italic/headers
+    text = _re.sub(r"#{1,6}\s+", "", text)        # ## Heading → Heading
+    text = _re.sub(r"\*{1,3}([^*]+)\*{1,3}", r"\1", text)  # **bold** → bold
+    text = _re.sub(r"_{1,3}([^_]+)_{1,3}", r"\1", text)    # __bold__ → bold
+    text = _re.sub(r"^\s*[-─]{3,}\s*$", "", text, flags=_re.MULTILINE)  # --- dividers
+    text = _re.sub(r"^\s*[|]\s*[-─]+.*$", "", text, flags=_re.MULTILINE)  # table lines
+
+    # 4. Collapse runs of 3+ newlines to max 2 (one blank line)
+    text = _re.sub(r"\n{3,}", "\n\n", text)
+
+    # 5. Final strip
+    return text.strip()
+
+
 # ── Recall ───────────────────────────────────────────────────────────────────
 
 async def recall(student_id: str, query: str, include_ontology: bool = False) -> str:
@@ -179,7 +260,7 @@ async def recall(student_id: str, query: str, include_ontology: bool = False) ->
     Semantic + graph search over the student's memory dataset.
     Optionally also searches the shared CS ontology dataset.
 
-    Returns a single string of all relevant memory snippets joined by newlines.
+    Returns clean plain text — no markdown, no raw dicts, no unicode escapes.
     Returns "" if nothing found or Cognee errors.
     """
     dataset_id = f"student_{student_id}"
@@ -201,20 +282,11 @@ async def recall(student_id: str, query: str, include_ontology: bool = False) ->
 
         snippets: list[str] = []
         for r in results:
-            if isinstance(r, str):
-                snippets.append(r)
-            elif hasattr(r, "answer"):
-                snippets.append(str(r.answer))
-            elif hasattr(r, "context"):
-                snippets.append(str(r.context))
-            elif hasattr(r, "text"):
-                snippets.append(str(r.text))
-            elif hasattr(r, "content"):
-                snippets.append(str(r.content))
-            else:
-                snippets.append(str(r))
+            snippet = _extract_snippet(r)
+            if snippet and snippet.strip():
+                snippets.append(_clean_text(snippet))
 
-        combined = "\n".join(s for s in snippets if s.strip())
+        combined = "\n\n".join(s for s in snippets if s.strip())
         logger.debug("Cognee recall OK | dataset=%s | snippets=%d", dataset_id, len(snippets))
         return combined
 
@@ -239,18 +311,11 @@ async def recall_topic_prerequisites(topic: str) -> str:
 
         snippets = []
         for r in results:
-            if isinstance(r, str):
-                snippets.append(r)
-            elif hasattr(r, "answer"):
-                snippets.append(str(r.answer))
-            elif hasattr(r, "context"):
-                snippets.append(str(r.context))
-            elif hasattr(r, "text"):
-                snippets.append(str(r.text))
-            else:
-                snippets.append(str(r))
+            snippet = _extract_snippet(r)
+            if snippet and snippet.strip():
+                snippets.append(_clean_text(snippet))
 
-        return "\n".join(s for s in snippets if s.strip())
+        return "\n\n".join(s for s in snippets if s.strip())
     except Exception as exc:
         logger.error("Cognee ontology recall failed | topic=%s | %s", topic, exc)
         return ""

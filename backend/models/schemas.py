@@ -162,11 +162,26 @@ class TopicProgress(BaseModel):
     topic: str
     attempts: int
     best_score: int
-    last_attempted: datetime
+    last_attempted: Optional[datetime] = None
     weak: bool
+
+
+class MemorySummary(BaseModel):
+    """
+    Structured breakdown of the Cognee graph-RAG narrative.
+    Each section is parsed from the LLM-generated text; missing sections are None.
+    """
+    student_profile:    Optional[str] = None   # goals, background, year
+    roadmap_overview:   Optional[str] = None   # 12-week plan summary
+    topics_mastered:    Optional[str] = None   # topics the student has conquered
+    topics_to_revise:   Optional[str] = None   # weak areas needing work
+    quiz_trends:        Optional[str] = None   # quiz performance patterns
+    interview_summary:  Optional[str] = None   # mock interview scores & feedback
+    narrative:          Optional[str] = None   # overall AI summary paragraph
+    raw:                str = ""               # full cleaned text (fallback)
 
 
 class ProgressResponse(BaseModel):
     student_id: str
     topics: List[TopicProgress]
-    memory_summary: str         # cognee recall() output — the AI's narrative
+    memory: MemorySummary
