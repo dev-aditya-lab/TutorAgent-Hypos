@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { NavBar } from "@/components/NavBar";
 import {
   IconAlert,
   IconBookOpen,
@@ -10,6 +11,7 @@ import {
   IconSpinner,
 } from "@/components/icons";
 import { authFetch } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 type Phase = "idle" | "loading" | "study" | "active" | "submitting" | "done";
 
@@ -29,8 +31,6 @@ type QuizResult = {
   struggled: boolean;
   feedback: string;
 };
-
-const DEV_STUDENT_ID = "guest";
 
 const MOCK_TASK: DailyTask = {
   task_id: "mock-task",
@@ -85,6 +85,8 @@ const MOCK_TASK: DailyTask = {
 };
 
 export default function QuizPage() {
+  const { studentId, ready, handleSessionExpired } = useAuthGuard();
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [task, setTask] = useState<DailyTask | null>(null);
   const [answers, setAnswers] = useState<number[]>([]);
@@ -104,16 +106,24 @@ export default function QuizPage() {
   }
 
   async function startQuiz() {
+    if (!studentId) return;
     setError(null);
     setNotice(null);
     setIsMock(false);
     setPhase("loading");
     try {
-      const response = await authFetch(`/tasks/today/${DEV_STUDENT_ID}`);
+      const response = await authFetch(`/tasks/today/${studentId}`);
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        startMockQuiz();
+        setError(data?.detail ?? "Could not load today's task. Please try again.");
+        setPhase("idle");
         return;
       }
 
@@ -144,7 +154,7 @@ export default function QuizPage() {
   }
 
   async function submitQuiz() {
-    if (!task) return;
+    if (!task || !studentId) return;
     setError(null);
     setPhase("submitting");
 
@@ -174,8 +184,14 @@ export default function QuizPage() {
     try {
       const response = await authFetch("/tasks/submit", {
         method: "POST",
-        body: JSON.stringify({ student_id: DEV_STUDENT_ID, task_id: task.task_id, answers }),
+        body: JSON.stringify({ student_id: studentId, task_id: task.task_id, answers }),
       });
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -207,8 +223,17 @@ export default function QuizPage() {
   const isLastQuestion = task ? currentIndex === task.questions.length - 1 : false;
   const hasAnsweredCurrent = answers[currentIndex] !== undefined && answers[currentIndex] !== -1;
 
+  if (!ready) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-emerald-50 px-4 py-12">
+        <IconSpinner className="h-6 w-6 animate-spin text-emerald-600" />
+      </main>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-emerald-50 px-4 py-12">
+    <main className="flex min-h-screen flex-col items-center bg-emerald-50 px-4 py-10">
+      <NavBar />
       <div className="w-full max-w-2xl rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-slate-900">Daily Quiz</h1>

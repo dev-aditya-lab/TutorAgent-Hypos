@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { NavBar } from "@/components/NavBar";
 import {
   IconAlert,
   IconCheckCircle,
@@ -10,6 +11,7 @@ import {
   IconVolume,
 } from "@/components/icons";
 import { authFetch } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 type Role = "assistant" | "user";
 type Message = { role: Role; content: string };
@@ -65,9 +67,9 @@ function speak(text: string, onStart: () => void, onEnd: () => void) {
   window.speechSynthesis.speak(utterance);
 }
 
-const DEV_STUDENT_ID = "guest";
-
 export default function InterviewPage() {
+  const { studentId, ready, handleSessionExpired } = useAuthGuard();
+
   const [phase, setPhase] = useState<Phase>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [questionNumber, setQuestionNumber] = useState(1);
@@ -170,6 +172,7 @@ export default function InterviewPage() {
   }
 
   async function startInterview() {
+    if (!studentId) return;
     setError(null);
     setNotice(null);
     setIsMock(false);
@@ -177,12 +180,19 @@ export default function InterviewPage() {
     try {
       const response = await authFetch("/interview/start", {
         method: "POST",
-        body: JSON.stringify({ student_id: DEV_STUDENT_ID }),
+        body: JSON.stringify({ student_id: studentId }),
       });
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
-        startMockInterview();
+        setError(data?.detail ?? "Could not start the interview. Please try again.");
+        setPhase("idle");
         return;
       }
 
@@ -197,12 +207,19 @@ export default function InterviewPage() {
   }
 
   async function finishInterview(finalSessionId: string) {
+    if (!studentId) return;
     setPhase("ending");
     try {
       const response = await authFetch("/interview/end", {
         method: "POST",
-        body: JSON.stringify({ session_id: finalSessionId, student_id: DEV_STUDENT_ID }),
+        body: JSON.stringify({ session_id: finalSessionId, student_id: studentId }),
       });
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -221,7 +238,7 @@ export default function InterviewPage() {
 
   async function submitAnswer() {
     const answer = draftAnswer.trim();
-    if (!answer || !sessionId) return;
+    if (!answer || !sessionId || !studentId) return;
 
     stopListening();
     setError(null);
@@ -237,8 +254,14 @@ export default function InterviewPage() {
     try {
       const response = await authFetch("/interview/respond", {
         method: "POST",
-        body: JSON.stringify({ session_id: sessionId, student_id: DEV_STUDENT_ID, answer }),
+        body: JSON.stringify({ session_id: sessionId, student_id: studentId, answer }),
       });
+
+      if (response.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -265,8 +288,17 @@ export default function InterviewPage() {
 
   const isBusy = phase === "starting" || phase === "submitting" || phase === "ending";
 
+  if (!ready) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-emerald-50 px-4 py-12">
+        <IconSpinner className="h-6 w-6 animate-spin text-emerald-600" />
+      </main>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-emerald-50 px-4 py-12">
+    <main className="flex min-h-screen flex-col items-center bg-emerald-50 px-4 py-10">
+      <NavBar />
       <div className="w-full max-w-2xl rounded-2xl border border-emerald-100 bg-white p-6 shadow-sm sm:p-8">
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-slate-900">AI Mock Interview</h1>

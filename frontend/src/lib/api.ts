@@ -27,3 +27,16 @@ export async function authFetch(path: string, options: RequestInit = {}) {
     },
   });
 }
+
+/** Clears the stored session. Call before redirecting to /login. */
+export function logout() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("token");
+}
+
+/** Reads the stored token (if any) and decodes the student_id out of it. */
+export function getCurrentStudentId(): string | null {
+  const token = getToken();
+  if (!token) return null;
+  return getStudentId(token);
+}
