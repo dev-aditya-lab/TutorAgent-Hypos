@@ -172,7 +172,7 @@ export default function InterviewPage() {
   }
 
   async function startInterview() {
-    if (!studentId) return;
+    if (!studentId || phase === "starting") return;
     setError(null);
     setNotice(null);
     setIsMock(false);
@@ -234,6 +234,20 @@ export default function InterviewPage() {
       setError("Could not reach the server. Please try again.");
       setPhase("active");
     }
+  }
+
+  function endInterview() {
+    if (isBusy) return;
+    if (!window.confirm("End the interview now? You'll be evaluated on the questions answered so far.")) {
+      return;
+    }
+    stopListening();
+    if (isMock) {
+      finishMockInterview();
+      return;
+    }
+    if (!sessionId) return;
+    finishInterview(sessionId);
   }
 
   async function submitAnswer() {
@@ -350,12 +364,22 @@ export default function InterviewPage() {
                 <span>
                   Question {Math.min(questionNumber, TOTAL_QUESTIONS)} of {TOTAL_QUESTIONS}
                 </span>
-                {isSpeaking && (
-                  <span className="flex items-center gap-1 text-emerald-600">
-                    <IconVolume className="h-3.5 w-3.5" />
-                    Interviewer speaking...
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {isSpeaking && (
+                    <span className="flex items-center gap-1 text-emerald-600">
+                      <IconVolume className="h-3.5 w-3.5" />
+                      Interviewer speaking...
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={endInterview}
+                    disabled={isBusy}
+                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    End interview
+                  </button>
+                </div>
               </div>
             )}
 

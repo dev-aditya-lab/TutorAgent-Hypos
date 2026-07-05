@@ -77,7 +77,7 @@ export default function ProgressPage() {
   }, [ready, studentId, handleSessionExpired]);
 
   function retryLoad() {
-    if (!studentId) return;
+    if (!studentId || phase === "loading") return;
     setPhase("loading");
     setError(null);
     fetchProgress(studentId).then((result) => {
